@@ -7,7 +7,7 @@ How it looks:
 
 ![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/3.png)  
 
-Also, there is webb application for this detection:  
+Also there is webb application for this detection:  
 
 ![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/webApp.png)  
 
