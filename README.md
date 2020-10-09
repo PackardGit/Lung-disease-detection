@@ -8,7 +8,7 @@ and Mobile version (with older python engine) looks like this:
 
 ![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/mobileApp.png)  
 
-Pprocess of detection:  
+Process of detection:  
 
 ![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/4.png)    
 
