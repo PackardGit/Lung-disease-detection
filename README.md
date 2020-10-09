@@ -5,7 +5,7 @@ Then we can train our model with improved images. After training we can use heat
 Android APP is complete, but not uploaded becouse of its size. Will be uploaded later
 How it looks:  
 
-![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/3.png)  
+![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/mobileApp.png)  
 
 Also there is webb application for this detection:  
 
