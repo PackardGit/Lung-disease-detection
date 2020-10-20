@@ -1,5 +1,6 @@
 # Lung-disease-detection
-Detection of Lung diesease. For now it detects whether it is Pneumonia, Covid-19 or Healthy Lungs. 
+Detection of Lung diesease. For now it detects whether it is Pneumonia, Covid-19 or Healthy Lungs.   
+
 Update nr1. Rasa chatbot added. Base model was downloaded from "https://github.com/RasaHQ/rasa-for-beginners" and modified.
 
 Web Application looks like this:  
