@@ -7,7 +7,7 @@ Web Application looks like this:
 ![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/images/webApp.png)  
 
 Simple chatbot:  
-![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/images/flask_rasa.png)  
+![alt text](https://github.com/Suarez94/Lung-disease-detection/blob/master/images/rasa_flask.png)  
 
 and Mobile version (with older python engine) looks like this:  
 
