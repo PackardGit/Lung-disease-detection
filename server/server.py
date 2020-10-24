@@ -45,7 +45,7 @@ ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
 IMAGE_WIDTH = 224
 IMAGE_HEIGHT = 224
 IMAGE_CHANNELS = 3
-
+image_size = 224
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -57,6 +57,69 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 model_croping = tf.keras.models.load_model('H:/Projekty/Dane/COVID-19 Radiography Database/unet_lung_seg_serial.hdf5')
 model = tf.keras.models.load_model('H:/Projekty/Dane/COVID-19 Radiography Database/resnet_variation.h5')
 
+def get_lungs_segmentation(image_c):
+    image_c = cv2.resize(image_c, (512,512), interpolation = cv2.INTER_AREA)
+    image_c = np.array(image_c) / 255
+    image_c = image_c.astype('float32')
+    image_to_predict = image_c.reshape(1, 512, 512,1)
+    predict_img = model_croping.predict(image_to_predict)
+    return(predict_img)
+    
+def get_mask(predict_img):
+    mask = predict_img[0,:,:,0]
+    mask = cv2.medianBlur(mask, 3)
+    mask = skimage.morphology.opening(mask,disk(10))
+    mask = skimage.morphology.dilation(mask, disk(20))
+    mask = cv2.resize(mask, (224,224), interpolation = cv2.INTER_AREA)
+    return mask
+    
+def get_heatmap(image):
+    image = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
+    image = cv2.resize(image, (224,224), interpolation = cv2.INTER_AREA)
+    x_test = np.array(image) / 255
+    x_test = x_test.reshape(-1, 224, 224,3)
+    x_test = x_test.astype('float32')
+    dim = (224, 224)
+    image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+    img_tensor = x_test
+    layer = 'conv2d_5'
+    conv_layer = model.get_layer(layer)
+    heatmap_model = tf.keras.models.Model([model.inputs], [model.get_layer(layer).output, model.output])
+    with tf.GradientTape() as tape:
+        conv_output, predictions = heatmap_model(img_tensor)
+        loss = predictions[:, np.argmax(predictions[0])]
+    grads = tape.gradient(loss, conv_output)
+    pooled_grads = K.mean(grads, axis=(0, 1, 2))
+    heatmap = tf.reduce_mean(tf.multiply(pooled_grads, conv_output), axis=-1)
+    heatmap = np.maximum(heatmap, 0)
+    max_heat = np.max(heatmap)
+    if max_heat == 0:
+        max_heat = 1e-10
+    heatmap /= max_heat
+    heatmap = heatmap[0,:,:]
+    heatmap = cv2.resize(heatmap, dim, interpolation = cv2.INTER_AREA)
+    return heatmap
+    
+def get_prediction(image):
+    image = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
+    image = cv2.resize(image, (224,224), interpolation = cv2.INTER_AREA)
+    x_test = np.array(image) / 255
+    x_test = x_test.reshape(-1, 224, 224,3)
+    x_test = x_test.astype('float32')
+    prediction = model.predict(x_test)
+    return prediction
+    
+def get_result_image(result_image)
+    result_image[:,:,0] = result_image[:,:,0]*mask
+    result_image[:,:,1] = result_image[:,:,1]*mask
+    result_image[:,:,2] = result_image[:,:,2]*mask
+    result_image[:,:,0]=image[:,:,1]*(1-heatmap) 
+    result_image[:,:,1]=image[:,:,1]*heatmap 
+    result_image2 = result_image
+    result_image2[:,:,2] = result_image[:,:,0]
+    result_image2[:,:,0] = result_image[:,:,1]
+    return result_image2
+    
 @app.route('/', methods=['GET'])
 def send_index():
     return send_from_directory('./www', "index.html")
@@ -71,6 +134,7 @@ def upload_image():
   if 'image' not in request.files:
       return jsonify({'error':'No posted image. Should be attribute named image.'})
   file = request.files['image']
+  
 
   # if user does not select file, browser also
   # submit a empty part without filename
@@ -87,55 +151,17 @@ def upload_image():
       imgage2.paste(image1)
       img = np.array(imgage2) 
       img = img[:, :, ::-1].copy() 
-
       #getting gray copy
       img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
       image = cv2.equalizeHist(img_gray)
-             
       # lungs segmentation
-      image_c = img_gray
-      image_c = cv2.resize(image_c, (512,512), interpolation = cv2.INTER_AREA)
-      image_c = np.array(image_c) / 255
-      image_c = image_c.astype('float32')
-      image_to_predict = image_c.reshape(1, 512, 512,1)
-      predict_img = model_croping.predict(image_to_predict)
-        
+      predict_img = get_lungs_segmentation(img_gray)
       # creating mask of lungs 
-      mask = predict_img[0,:,:,0]
-      mask = cv2.medianBlur(mask, 3)
-      mask = skimage.morphology.opening(mask,disk(10))
-      mask = skimage.morphology.dilation(mask, disk(20))
-      mask = cv2.resize(mask, (224,224), interpolation = cv2.INTER_AREA)
-
+      mask = get_mask(predict_img)
       # creating heatmap 
-      image_size = 224
-      image = cv2.cvtColor(image,cv2.COLOR_GRAY2RGB)
-      image = cv2.resize(image, (224,224), interpolation = cv2.INTER_AREA)
-      x_test = np.array(image) / 255
-      x_test = x_test.reshape(-1, image_size, image_size,3)
-      x_test = x_test.astype('float32')
-      dim = (image_size, image_size)
-      image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
-      img_tensor = x_test
-      layer = 'conv2d_5'
-      conv_layer = model.get_layer(layer)
-      heatmap_model = tf.keras.models.Model([model.inputs], [model.get_layer(layer).output, model.output])
-      with tf.GradientTape() as tape:
-          conv_output, predictions = heatmap_model(img_tensor)
-          loss = predictions[:, np.argmax(predictions[0])]
-      grads = tape.gradient(loss, conv_output)
-      pooled_grads = K.mean(grads, axis=(0, 1, 2))
-      heatmap = tf.reduce_mean(tf.multiply(pooled_grads, conv_output), axis=-1)
-      heatmap = np.maximum(heatmap, 0)
-      max_heat = np.max(heatmap)
-      if max_heat == 0:
-          max_heat = 1e-10
-      heatmap /= max_heat
-      heatmap = heatmap[0,:,:]
-      heatmap = cv2.resize(heatmap, dim, interpolation = cv2.INTER_AREA)
-    
+      heatmap = get_heatmap(image)
       # making prediction of disease
-      prediction = model.predict(x_test)
+      prediction = get_prediction(image)
       pred = np.argmax(prediction,axis=1)
       probability = prediction.max()*100
       result = 'unknown'
@@ -145,26 +171,16 @@ def upload_image():
           result = 'Healthy Lungs!'
       if pred[0] == 2:
           result = 'Pneumonia'
-        
       # creating result image
       mask[mask > 0.5] = 1
       mask[mask <= 0.5] = 0
-      result_image = image
-      result_image[:,:,0] = result_image[:,:,0]*mask
-      result_image[:,:,1] = result_image[:,:,1]*mask
-      result_image[:,:,2] = result_image[:,:,2]*mask
-      result_image[:,:,0]=image[:,:,1]*(1-heatmap) 
-      result_image[:,:,1]=image[:,:,1]*heatmap 
-      result_image2 = result_image
-      result_image2[:,:,2] = result_image[:,:,0]
-      result_image2[:,:,0] = result_image[:,:,1]
-      
+      result_image = get_result_image(image)
       # creating message to send  
       items = []
       items = {'name': result, 'prob': probability}
       response = {'pred':items}
 
-      cv2.imwrite('C:/Users/Adrian/server/www/image.jpg', np.float32(result_image2)) 
+      cv2.imwrite('C:/Users/Adrian/server/www/image.jpg', np.float32(result_image)) 
       return jsonify(response) 
   else:
       return jsonify({'error':'File has invalid extension'})
